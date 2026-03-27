@@ -1,59 +1,226 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+- Log in as **Author**: Verify they can edit their own posts but not others'.
+- Log in as **Admin**: Verify they can access an "Admin Only" section via Gate.
+- Log in as **Regular User**: Verify they can only view posts.
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+---
 
-## About Laravel
+# Gates
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+A **Gate** is a simple authorization rule. Use it when the rule is small and not tied to one model too much
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+Example:
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+- only admins can access dashboard
 
-## Learning Laravel
+### Where to define a gate
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+```php
+<?php
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+namespace App\Providers;
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\Gate;
+use App\Models\User;
+use App\Models\Post;
+use App\Policies\PostPolicy;
 
-## Agentic Development
+class AppServiceProvider extends ServiceProvider
+{
+    /**
+     * Register any application services.
+     */
+    public function register(): void
+    {
+        //
+    }
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+    /**
+     * Bootstrap any application services.
+     */
+    public function boot(): void
+    {
+        Gate::define('is-admin', function (User $user) {
+            return $user->isAdmin();
+        });
+    }
+}
 
-```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+### How to use a gate
 
-## Contributing
+```php
+// first method
+public function index()
+{
+    if (! Gate::allows('access-admin')) {
+        abort(403);
+    }
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+    return view('admin.dashboard');
+}
 
-## Code of Conduct
+// cleaner method
+public function index()
+{
+    $this->authorize('access-admin');
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+    return view('admin.dashboard');
+}
 
-## Security Vulnerabilities
+// in blade
+@can('access-admin')
+    <a href="/admin">Admin Panel</a>
+@endcan
+@cannot('access-admin')
+    <p>You are not allowed.</p>
+@endcannot
+```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+# Policies
 
-## License
+A **Policy** is a class that organizes authorization logic for a specific model.
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
-# laravel-gate-policies
+Use Policy when you have actions like:
+
+- view post
+- create post
+- update post
+- delete post
+
+for a model like `Post`, `Course`, `Order`, etc.
+
+So if Gates are simple rules, Policies are more structured and better for model-related authorization.
+
+### How to define a policy
+
+1- run this command: `php artisan make:policy PostPolicy --model=Post`
+
+2- define rules:
+
+```php
+namespace App\Policies;
+
+use App\Models\Post;
+use App\Models\User;
+
+class PostPolicy
+{
+    public function update(User $user, Post $post): bool
+    {
+        return $user->id === $post->user_id;
+    }
+
+    public function delete(User $user, Post $post): bool
+    {
+        return $user->id === $post->user_id;
+    }
+}
+```
+
+3- register a policy: In modern Laravel versions, Laravel can often auto-discover policies if naming is standard.
+
+### How to use a policy
+
+```php
+public function update(Request $request, Post $post)
+{
+    $this->authorize('update', $post);
+
+    $post->update($request->all());
+
+    return response()->json(['message' => 'Post updated']);
+}
+
+// blade
+@can('update', $post)
+    <button>Edit</button>
+@endcan
+
+@can('delete', $post)
+    <button>Delete</button>
+@endcan
+```
+
+## Additional Info
+
+Common policy methods
+
+```php
+public function viewAny(User $user): bool
+public function view(User $user, Post $post): bool
+public function create(User $user): bool
+public function update(User $user, Post $post): bool
+public function delete(User $user, Post $post): bool
+public function restore(User $user, Post $post): bool
+public function forceDelete(User $user, Post $post): bool
+```
+
+full example policy
+
+```php
+namespace App\Policies;
+
+use App\Models\Post;
+use App\Models\User;
+
+class PostPolicy
+{
+    public function viewAny(User $user): bool
+    {
+        return true;
+    }
+
+    public function view(User $user, Post $post): bool
+    {
+        return true;
+    }
+
+    public function create(User $user): bool
+    {
+        return $user->role === 'writer' || $user->role === 'admin';
+    }
+
+    public function update(User $user, Post $post): bool
+    {
+        return $user->id === $post->user_id || $user->role === 'admin';
+    }
+
+    public function delete(User $user, Post $post): bool
+    {
+        return $user->id === $post->user_id || $user->role === 'admin';
+    }
+}
+```
+
+How to use gate and policies in middlware
+
+```php
+//gate
+Route::get('/admin', function () {
+    return 'Admin page';
+})->middleware('can:access-admin');
+
+// policy
+Route::put('/posts/{post}', [PostController::class, 'update'])
+    ->middleware('can:update,post');
+```
+
+different ways to use gates and policies
+
+```php
+// gate
+if (Gate::allows('access-admin')) {
+    // allowed
+}
+if (Gate::denies('access-admin')) {
+    abort(403);
+}
+$this->authorize('access-admin');
+
+// policy
+Gate::allows('update', $post);
+Gate::denies('update', $post);
+$this->authorize('update', $post);
+```
