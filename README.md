@@ -1,9 +1,3 @@
-- Log in as **Author**: Verify they can edit their own posts but not others'.
-- Log in as **Admin**: Verify they can access an "Admin Only" section via Gate.
-- Log in as **Regular User**: Verify they can only view posts.
-
----
-
 # Gates
 
 A **Gate** is a simple authorization rule. Use it when the rule is small and not tied to one model too much
