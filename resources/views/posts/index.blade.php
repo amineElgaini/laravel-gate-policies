@@ -5,7 +5,7 @@
                 {{ __('Posts') }}
             </h2>
             @can('create', App\Models\Post::class)
-                <a href="{{ route('posts.create') }}" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                <a href="{{ route('posts.create') }}" class="bg-blue-500 hover:bg-blue-700 text-black font-bold py-2 px-4 rounded">
                     Create New Post
                 </a>
             @endcan
